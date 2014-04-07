@@ -247,6 +247,7 @@ public:
 	CAMPAIGN_TYPE campaign_type;
 	std::string campaign_define;                     /**< If there is a define the campaign uses to customize data */
 	std::vector<std::string> campaign_xtra_defines;  /**< more customization of data */
+	std::string meta_define;                         /**< define used in metadata file to load main config */
 
 	std::string campaign;                            /**< the campaign being played */
 

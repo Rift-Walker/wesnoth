@@ -19,6 +19,7 @@
 #include "cursor.hpp"
 #include "game_config.hpp"
 #include "gettext.hpp"
+#include "filesystem.cpp"
 #include "gui/dialogs/wml_error.hpp"
 #include "hotkey/hotkey_item.hpp"
 #include "hotkey/hotkey_command.hpp"
@@ -29,6 +30,7 @@
 #include "resources.hpp"
 #include "scripting/lua.hpp"
 #include "terrain_builder.hpp"
+#include "serialization/parser.hpp"
 
 #include <boost/foreach.hpp>
 
@@ -278,8 +280,13 @@ void game_config_manager::load_addons_cfg()
 		}
 
 		const std::string main_cfg = uc + "/_main.cfg";
-		if(file_exists(main_cfg)) {
-			addons_to_load.push_back(main_cfg);
+		const std::string meta_cfg = uc + "/_meta.cfg";
+		if(have_valid_meta(uc)) {
+			addons_to_load.push_back(meta_cfg);
+		} else if(file_exists(main_cfg)) {
+			if (generate_meta(main_cfg)) {
+				addons_to_load.push_back(meta_cfg);
+			}
 		}
 	}
 
@@ -321,6 +328,75 @@ void game_config_manager::load_addons_cfg()
 		gui2::twml_error::display(msg1, msg2, error_addons, report,
 								  disp_.video());
 	}
+}
+
+bool game_config_manager::have_valid_meta(const std::string& dir) {
+	if (!file_exists(dir + "/_meta.cfg")) {
+		std::cout << "meta file doesn't exist!" << std::endl;
+		return false;
+	} else {
+		file_tree_checksum all_except_meta;
+		get_file_tree_checksum_internal(dir, all_except_meta);
+
+		struct stat st;
+		::stat((dir + "/_meta.cfg").c_str(), &st);
+
+		std::cout << "meta last modified: " << st.st_mtime << " others: " << all_except_meta.modified << std::endl;
+		return st.st_mtime > all_except_meta.modified;
+	}
+}
+
+bool game_config_manager::generate_meta(const std::string &main) {
+	config main_cfg, meta_cfg;
+
+	game_config::scoped_preproc_define multiplayer("MULTIPLAYER");
+	cache_.get_config(main, main_cfg);
+
+	std::string meta_define;
+
+	if (main_cfg.has_child("campaign")) {
+		config& campaign_main = main_cfg.child("campaign");
+		config& campaign_meta = meta_cfg.add_child("metadata");
+
+		campaign_meta["tag"] = "campaign";
+		campaign_meta["id"] = campaign_main["id"];
+		campaign_meta["name"] = campaign_main["name"];
+		campaign_meta["image"] = campaign_main["image"];
+		campaign_meta["min_players"] = campaign_main["min_players"];
+		campaign_meta["max_players"] = campaign_main["max_players"];
+		campaign_meta["description"] = campaign_main["description"];
+		campaign_meta["allow_era_choice"] = campaign_main["allow_era_choice"];
+
+		meta_define = campaign_main["id"].str() + "_load";
+	}
+	else if (main_cfg.has_child("multiplayer")) {
+		config& scenario_main = main_cfg.child("multiplayer");
+		config& scenario_meta = meta_cfg.add_child("metadata");
+
+		scenario_meta["tag"] = "multiplayer";
+		scenario_meta["id"] = scenario_main["id"];
+		scenario_meta["name"] = scenario_main["name"];
+		scenario_meta["map_data"] = scenario_main["map_data"];
+		scenario_meta["description"] = scenario_main["description"];
+		scenario_meta["allow_era_choice"] = scenario_main["allow_era_choice"];
+		scenario_meta["map_generation"] = scenario_main["map_generation"];
+		BOOST_FOREACH (const config& side, main_cfg.child_range("side")) {
+			meta_cfg.add_child("side", side);
+		}
+
+		meta_define = scenario_main["id"].str() + "_load";
+	}
+
+	delete_directory(directory_name(main) + "_meta.cfg");
+	scoped_ostream ofile(ostream_file(directory_name(main) + "_meta.cfg"));
+
+	*ofile << "#IFNDEF " << meta_define << std::endl;
+	write(*ofile, meta_cfg, 0);
+	*ofile << "#ELSE" << std::endl;
+	*ofile << "{" << get_short_wml_path(main) << "}" << std::endl;
+	*ofile << "#ENDIF" << std::endl;
+
+	return true;
 }
 
 void game_config_manager::set_multiplayer_hashes()
@@ -373,6 +449,8 @@ void game_config_manager::load_game_config_for_game(
 		!classification.difficulty.empty());
 	game_config::scoped_preproc_define campaign(classification.campaign_define,
 		!classification.campaign_define.empty());
+	game_config::scoped_preproc_define meta(classification.meta_define,
+		!classification.meta_define.empty());
 	game_config::scoped_preproc_define multiplayer("MULTIPLAYER",
 		classification.campaign_type == game_classification::MULTIPLAYER);
 

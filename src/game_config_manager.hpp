@@ -48,6 +48,8 @@ private:
 
 	// load_game_config() helper functions.
 	void load_addons_cfg();
+	bool have_valid_meta(const std::string & dir);
+	bool generate_meta(const std::string & main);
 	void set_multiplayer_hashes();
 	void set_color_info();
 	void set_unit_data();

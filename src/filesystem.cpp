@@ -169,6 +169,11 @@ void get_files_in_dir(const std::string &directory,
 				if(filter == SKIP_PBL_FILES && looks_like_pbl(basename)) {
 					continue;
 				}
+				// if skipping media files, also skip _meta.cfg.
+				// todo: make a special filter for metadata generation.
+				if(filter == SKIP_MEDIA_DIR && basename == "_meta.cfg") {
+					continue;
+				}
 				if (files != NULL) {
 					if (mode == ENTIRE_FILE_PATH)
 						files->push_back(fullname);

@@ -413,6 +413,19 @@ void create_engine::prepare_for_new_level()
 	parameters_.mp_scenario_name = parameters_.scenario_data["name"].str();
 }
 
+void create_engine::prepare_for_scenario()
+{
+	DBG_MP << "preparing data for scenario by reloading game config\n";
+
+	state_.classification().meta_define =
+		current_level().data()["id"].str() + "_load";
+
+	resources::config_manager->
+		load_game_config_for_game(state_.classification());
+
+	current_level().set_data(resources::config_manager->game_config().find_child("multiplayer", "id", current_level().data()["id"]));
+}
+
 void create_engine::prepare_for_campaign(const std::string& difficulty)
 {
 	DBG_MP << "preparing data for campaign by reloading game config\n";
@@ -423,6 +436,8 @@ void create_engine::prepare_for_campaign(const std::string& difficulty)
 		parameters_.difficulty_define = difficulty;
 	}
 
+	state_.classification().meta_define =
+		current_level().data()["id"].str() + "_load";
 	state_.classification().campaign_define =
 		current_level().data()["define"].str();
 	state_.classification().campaign_xtra_defines =
@@ -845,6 +860,37 @@ void create_engine::init_all_levels()
 			depinfo["name"] = data["name"];
 			dependency_manager_.insert_element(depcheck::SCENARIO, depinfo,
 					i - dep_index_offset++);
+		}
+	}
+
+	// Read in metadata configs.
+	BOOST_FOREACH(const config &data,
+		resources::config_manager->game_config().child_range("metadata"))
+	{
+		// Stand-alone scenarios.
+		if (data["tag"].str() == "multiplayer") {
+			if (!data["map_generation"].empty()) {
+				random_map_ptr new_random_map(new random_map(data));
+				random_maps_.push_back(new_random_map);
+				random_maps_.back()->set_metadata();
+			} else if (data["allow_new_game"].to_bool(true)) {
+				scenario_ptr new_scenario(new scenario(data));
+				scenarios_.push_back(new_scenario);
+				scenarios_.back()->set_metadata();
+			}
+		// Campaigns.
+		} else if (data["tag"].str() == "campaign") {
+			const std::string& type = data["type"];
+
+			if (type == "mp" || type == "hybrid") {
+				campaign_ptr new_campaign(new campaign(data));
+				campaigns_.push_back(new_campaign);
+				campaigns_.back()->set_metadata();
+			} else {
+				campaign_ptr new_sp_campaign(new campaign(data));
+				sp_campaigns_.push_back(new_sp_campaign);
+				sp_campaigns_.back()->set_metadata();
+			}
 		}
 	}
 

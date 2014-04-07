@@ -823,11 +823,7 @@ bool game_controller::goto_multiplayer()
 {
 	if(jump_to_multiplayer_){
 		jump_to_multiplayer_ = false;
-		if(play_multiplayer()){
-			;
-		}else{
-			return false;
-		}
+		return play_multiplayer();
 	}
 	return true;
 }

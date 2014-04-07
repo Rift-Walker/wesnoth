@@ -815,6 +815,7 @@ game_classification::game_classification():
 	campaign_type(),
 	campaign_define(),
 	campaign_xtra_defines(),
+	meta_define(),
 	campaign(),
 	abbrev(),
 	completion(),
@@ -833,6 +834,7 @@ game_classification::game_classification(const config& cfg):
 	campaign_type(lexical_cast_default<game_classification::CAMPAIGN_TYPE> (cfg["campaign_type"].str(), game_classification::SCENARIO)),
 	campaign_define(cfg["campaign_define"]),
 	campaign_xtra_defines(utils::split(cfg["campaign_extra_defines"])),
+	meta_define(cfg["meta_define"]),
 	campaign(cfg["campaign"]),
 	abbrev(cfg["abbrev"]),
 	completion(cfg["completion"]),
@@ -851,6 +853,7 @@ game_classification::game_classification(const game_classification& gc):
 	campaign_type(gc.campaign_type),
 	campaign_define(gc.campaign_define),
 	campaign_xtra_defines(gc.campaign_xtra_defines),
+	meta_define(gc.meta_define),
 	campaign(gc.campaign),
 	abbrev(gc.abbrev),
 	completion(gc.completion),
@@ -872,6 +875,7 @@ config game_classification::to_config() const
 	cfg["campaign_type"] = lexical_cast<std::string> (campaign_type);
 	cfg["campaign_define"] = campaign_define;
 	cfg["campaign_extra_defines"] = utils::join(campaign_xtra_defines);
+	cfg["meta_define"] = meta_define;
 	cfg["campaign"] = campaign;
 	cfg["abbrev"] = abbrev;
 	cfg["completion"] = completion;
@@ -1072,6 +1076,7 @@ void game_state::write_snapshot(config& cfg, game_display* gui) const
 
 	cfg["campaign_define"] = classification_.campaign_define;
 	cfg["campaign_extra_defines"] = utils::join(classification_.campaign_xtra_defines);
+	cfg["meta_define"] = classification_.meta_define;
 	cfg["next_underlying_unit_id"] = str_cast(n_unit::id_manager::instance().get_save_id());
 
 	cfg["end_credits"] = classification_.end_credits;
