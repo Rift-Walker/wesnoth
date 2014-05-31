@@ -347,15 +347,19 @@ bool game_config_manager::have_valid_meta(const std::string& dir) {
 }
 
 bool game_config_manager::generate_meta(const std::string &main) {
-	config main_cfg, meta_cfg;
+	config main_cfg;
 
 	game_config::scoped_preproc_define multiplayer("MULTIPLAYER");
 	cache_.get_config(main, main_cfg);
 
+
 	std::string meta_define;
 
-	if (main_cfg.has_child("campaign")) {
-		config& campaign_main = main_cfg.child("campaign");
+	std::vector<config> configs;
+
+	BOOST_FOREACH(const config& campaign_main, main_cfg.child_range("campaign")) {
+		
+		config meta_cfg;
 		config& campaign_meta = meta_cfg.add_child("metadata");
 
 		campaign_meta["tag"] = "campaign";
@@ -368,9 +372,11 @@ bool game_config_manager::generate_meta(const std::string &main) {
 		campaign_meta["allow_era_choice"] = campaign_main["allow_era_choice"];
 
 		meta_define = campaign_main["id"].str() + "_load";
+		configs.push_back(meta_cfg);
 	}
-	else if (main_cfg.has_child("multiplayer")) {
-		config& scenario_main = main_cfg.child("multiplayer");
+	BOOST_FOREACH(const config& scenario_main, main_cfg.child_range("multiplayer")) {
+
+		config meta_cfg;
 		config& scenario_meta = meta_cfg.add_child("metadata");
 
 		scenario_meta["tag"] = "multiplayer";
@@ -385,13 +391,17 @@ bool game_config_manager::generate_meta(const std::string &main) {
 		}
 
 		meta_define = scenario_main["id"].str() + "_load";
+		configs.push_back(meta_cfg);
 	}
 
 	delete_directory(directory_name(main) + "_meta.cfg");
 	scoped_ostream ofile(ostream_file(directory_name(main) + "_meta.cfg"));
 
 	*ofile << "#IFNDEF " << meta_define << std::endl;
-	write(*ofile, meta_cfg, 0);
+
+	BOOST_FOREACH(const config& meta, configs) {
+		write(*ofile, meta);
+	}
 	*ofile << "#ELSE" << std::endl;
 	*ofile << "{" << get_short_wml_path(main) << "}" << std::endl;
 	*ofile << "#ENDIF" << std::endl;
