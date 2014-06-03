@@ -283,10 +283,8 @@ void game_config_manager::load_addons_cfg()
 		const std::string meta_cfg = uc + "/_meta.cfg";
 		if(have_valid_meta(uc)) {
 			addons_to_load.push_back(meta_cfg);
-		} else if(file_exists(main_cfg)) {
-			if (generate_meta(main_cfg)) {
-				addons_to_load.push_back(meta_cfg);
-			}
+		} else if(file_exists(main_cfg) && generate_meta(main_cfg)) {
+			addons_to_load.push_back(meta_cfg);
 		}
 	}
 
@@ -330,9 +328,9 @@ void game_config_manager::load_addons_cfg()
 	}
 }
 
-bool game_config_manager::have_valid_meta(const std::string& dir) {
+bool game_config_manager::have_valid_meta(const std::string& dir) const {
 	if (!file_exists(dir + "/_meta.cfg")) {
-		std::cout << "meta file doesn't exist!" << std::endl;
+		LOG_CONFIG << "meta file doesn't exist for " << dir << std::endl;
 		return false;
 	} else {
 		file_tree_checksum all_except_meta;
@@ -341,70 +339,58 @@ bool game_config_manager::have_valid_meta(const std::string& dir) {
 		struct stat st;
 		::stat((dir + "/_meta.cfg").c_str(), &st);
 
-		std::cout << "meta last modified: " << st.st_mtime << " others: " << all_except_meta.modified << std::endl;
 		return st.st_mtime > all_except_meta.modified;
 	}
 }
 
-bool game_config_manager::generate_meta(const std::string &main) {
+bool game_config_manager::generate_meta(const std::string &main) const {
 	config main_cfg;
 
 	game_config::scoped_preproc_define multiplayer("MULTIPLAYER");
 	cache_.get_config(main, main_cfg);
 
-
 	std::string meta_define;
 
 	std::vector<config> configs;
 
+	BOOST_FOREACH(const config& terrain, main_cfg.child_range("terrain_type")) {
+		configs.push_back(terrain);
+	}
+
 	BOOST_FOREACH(const config& campaign_main, main_cfg.child_range("campaign")) {
-		
 		config meta_cfg;
-		config& campaign_meta = meta_cfg.add_child("metadata");
+		config& campaign_meta = meta_cfg.add_child("campaign");
+		campaign_meta.merge_attributes(campaign_main);
 
-		campaign_meta["tag"] = "campaign";
-		campaign_meta["id"] = campaign_main["id"];
-		campaign_meta["name"] = campaign_main["name"];
-		campaign_meta["image"] = campaign_main["image"];
-		campaign_meta["min_players"] = campaign_main["min_players"];
-		campaign_meta["max_players"] = campaign_main["max_players"];
-		campaign_meta["description"] = campaign_main["description"];
-		campaign_meta["allow_era_choice"] = campaign_main["allow_era_choice"];
-
-		meta_define = campaign_main["id"].str() + "_load";
+		meta_define = campaign_main["id"].str() + "_LOAD";
 		configs.push_back(meta_cfg);
 	}
+
 	BOOST_FOREACH(const config& scenario_main, main_cfg.child_range("multiplayer")) {
-
 		config meta_cfg;
-		config& scenario_meta = meta_cfg.add_child("metadata");
+		config& scenario_meta = meta_cfg.add_child("multiplayer");
+		scenario_meta.merge_attributes(scenario_main);
 
-		scenario_meta["tag"] = "multiplayer";
-		scenario_meta["id"] = scenario_main["id"];
-		scenario_meta["name"] = scenario_main["name"];
-		scenario_meta["map_data"] = scenario_main["map_data"];
-		scenario_meta["description"] = scenario_main["description"];
-		scenario_meta["allow_era_choice"] = scenario_main["allow_era_choice"];
-		scenario_meta["map_generation"] = scenario_main["map_generation"];
-		BOOST_FOREACH (const config& side, main_cfg.child_range("side")) {
-			meta_cfg.add_child("side", side);
+		BOOST_FOREACH (config side, scenario_main.child_range("side")) {
+			config& side_meta = scenario_meta.add_child("side");
+			side_meta.merge_attributes(side);
 		}
 
-		meta_define = scenario_main["id"].str() + "_load";
+		meta_define = scenario_main["id"].str() + "_LOAD";
 		configs.push_back(meta_cfg);
 	}
 
 	delete_directory(directory_name(main) + "_meta.cfg");
 	scoped_ostream ofile(ostream_file(directory_name(main) + "_meta.cfg"));
 
-	*ofile << "#IFNDEF " << meta_define << std::endl;
+	*ofile << "#ifndef " << meta_define << std::endl;
 
 	BOOST_FOREACH(const config& meta, configs) {
 		write(*ofile, meta);
 	}
-	*ofile << "#ELSE" << std::endl;
+	*ofile << "#else" << std::endl;
 	*ofile << "{" << get_short_wml_path(main) << "}" << std::endl;
-	*ofile << "#ENDIF" << std::endl;
+	*ofile << "#endif" << std::endl;
 
 	return true;
 }

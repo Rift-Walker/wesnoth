@@ -48,11 +48,26 @@ private:
 
 	// load_game_config() helper functions.
 	void load_addons_cfg();
-	bool have_valid_meta(const std::string & dir);
-	bool generate_meta(const std::string & main);
 	void set_multiplayer_hashes();
 	void set_color_info();
 	void set_unit_data();
+
+	/**
+	 * Checks for up-to-date _meta.cfg file in a given directory.
+	 * 
+	 * Compares last-modified datestamp of _meta.cfg, if present,
+	 * to that of the rest of the files in the directory.
+	 * @return false if metadata is missing or out-of-date, otherwise true.
+	 */
+	bool have_valid_meta(const std::string & dir) const;
+
+	/**
+	 * Generates metadata file, _meta.cfg, for a given *.cfg file.
+	 *
+	 * @param main	the full path to the file to be loaded.
+	 * @return	true if successful, false if failed.
+	 */
+	bool generate_meta(const std::string & main) const ;
 
 	const commandline_options& cmdline_opts_;
 	game_display& disp_;

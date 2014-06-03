@@ -418,12 +418,15 @@ void create_engine::prepare_for_scenario()
 	DBG_MP << "preparing data for scenario by reloading game config\n";
 
 	state_.classification().meta_define =
-		current_level().data()["id"].str() + "_load";
+		current_level().data()["id"].str() + "_LOAD";
 
 	resources::config_manager->
 		load_game_config_for_game(state_.classification());
 
-	current_level().set_data(resources::config_manager->game_config().find_child("multiplayer", "id", current_level().data()["id"]));
+	current_level().set_data(
+		resources::config_manager->game_config().find_child(
+		lexical_cast<std::string> (game_classification::MULTIPLAYER),
+		"id", current_level().data()["id"]));
 }
 
 void create_engine::prepare_for_campaign(const std::string& difficulty)
@@ -437,7 +440,7 @@ void create_engine::prepare_for_campaign(const std::string& difficulty)
 	}
 
 	state_.classification().meta_define =
-		current_level().data()["id"].str() + "_load";
+		current_level().data()["id"].str() + "_LOAD";
 	state_.classification().campaign_define =
 		current_level().data()["define"].str();
 	state_.classification().campaign_xtra_defines =

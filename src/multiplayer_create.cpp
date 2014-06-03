@@ -188,6 +188,8 @@ create::create(game_display& disp, const config& cfg, game_state& state,
 	}
 
 	gamelist_updated();
+
+	DBG_MP << "Finished constructing mp create dialog" << std::endl;
 }
 
 create::~create()
