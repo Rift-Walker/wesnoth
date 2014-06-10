@@ -34,6 +34,8 @@
 
 #include <boost/foreach.hpp>
 
+#include <stack>
+
 static lg::log_domain log_config("config");
 #define ERR_CONFIG LOG_STREAM(err, log_config)
 #define WRN_CONFIG LOG_STREAM(warn, log_config)
@@ -343,7 +345,114 @@ bool game_config_manager::have_valid_meta(const std::string& dir) const {
 	}
 }
 
+void game_config_manager::process_file(std::istream& input, std::string fname,
+		std::string tag, std::ostream& output, bool mute) const {
+
+	char c = ' ';
+	std::stack<char> sym;
+	std::string tagbuf, buffer;
+	while (!input.eof()) {
+		input.get(c);
+		std::cout << c;
+		switch (c) {
+			case '[' :
+			case '{' :
+				if (!sym.empty())
+					tagbuf += c;
+				sym.push(c);
+				break;
+			case ']' :
+
+				if (sym.empty() || (!sym.empty() && sym.top() != '[')) throw 0;
+
+				sym.pop();
+						
+				if (sym.empty()) {
+					if (tagbuf[0] == '/') {
+						// closing tag: return
+						if (tag == "multiplayer" || tag == "campaign") {
+							int pos = buffer.find("id=");
+							std::string id = buffer.substr(pos + 3, (buffer.find("\n", pos) - (pos + 3)));
+							std::remove(id.begin(), id.end(), '\"');
+							buffer = "\n#ifndef " + id + "_LOAD\n[" + tag + "]" + buffer + "[/" + tag + "]\n#else\n{" + get_short_wml_path(fname) + "}\n#endif\n";
+						} else {
+							buffer = "[" + tag + "]" + buffer + "[/" + tag + "]";
+						}
+						if (!mute) {
+							output << buffer;
+						}
+						return;
+					} else {
+						// opening tag: recurse
+						std::stringstream temp;
+						process_file(input, fname, tagbuf, temp, mute ||
+								((tag == "multiplayer" || tag == "campaign")
+								&& !(tag == "multiplayer" && tagbuf == "side")));
+						buffer += temp.str();
+						tagbuf.clear();
+						break;
+					}
+				} else tagbuf += c;
+				break;
+			case '}' :
+				{
+					if (sym.empty() || (!sym.empty() && sym.top() != '{')) throw 0;
+
+					sym.pop();
+					
+					if (sym.empty()) {
+						std::string filename = get_wml_location(tagbuf);
+						if (filename.empty()) {
+							buffer += "{" + tagbuf + "}";
+						}
+						else {
+							struct stat st;
+							::stat(filename.c_str(), &st);
+							std::vector<std::string> files;
+							if (S_ISREG(st.st_mode)) {
+								files.push_back(filename);
+							} else if (S_ISDIR(st.st_mode)) {
+								get_files_in_dir(filename, &files, NULL, ENTIRE_FILE_PATH, SKIP_MEDIA_DIR, DO_REORDER, NULL);
+							}
+							BOOST_FOREACH(const std::string& f, files) {
+								std::ifstream new_file(f.c_str());
+								std::stringstream temp;
+								if (!new_file.fail()) {
+									process_file(new_file, f, tag, temp, mute);
+									buffer += temp.str();
+								}
+							} 
+						}
+						tagbuf.clear();
+						break;
+					}
+					else tagbuf += c;
+					break;
+				} 
+			default :
+				if (sym.empty()) buffer += c;
+				else tagbuf += c;
+		}
+	}
+	if (!mute) {
+		output << buffer;
+	}
+}
+
 bool game_config_manager::generate_meta(const std::string &main) const {
+
+	std::string meta(directory_name(main) + "_meta.cfg");
+
+	delete_directory(meta);
+	std::ofstream out(meta.c_str());
+	std::ifstream in(main.c_str());
+	try {
+		process_file(in, main, "", out, false);
+	} catch(int) {
+		throw;
+	}
+	return true;
+	/*
 	config main_cfg;
 
 	game_config::scoped_preproc_define multiplayer("MULTIPLAYER");
@@ -393,6 +502,7 @@ bool game_config_manager::generate_meta(const std::string &main) const {
 	*ofile << "#endif" << std::endl;
 
 	return true;
+	*/
 }
 
 void game_config_manager::set_multiplayer_hashes()

@@ -61,6 +61,10 @@ private:
 	 */
 	bool have_valid_meta(const std::string & dir) const;
 
+	// recursive functin for parsing cfg into metadata
+	void process_file(std::istream& input, std::string fname,
+		std::string tag, std::ostream& output, bool mute) const;
+
 	/**
 	 * Generates metadata file, _meta.cfg, for a given *.cfg file.
 	 *
