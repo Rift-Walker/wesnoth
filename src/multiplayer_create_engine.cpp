@@ -414,6 +414,20 @@ void create_engine::prepare_for_new_level()
 	parameters_.mp_scenario_name = parameters_.scenario_data["name"].str();
 }
 
+void create_engine::prepare_for_scenario()
+{
+	DBG_MP << "preparing data for campaign by reloading game config\n";
+
+	state_.classification().scenario_define =
+		current_level().data()["define"].str();
+	state_.classification().era_define =
+		resources::config_manager->game_config().find_child(
+			"era", "id", get_parameters().mp_era)["define"].str();
+	
+	resources::config_manager->
+		load_game_config_for_game(state_.classification());
+}
+
 void create_engine::prepare_for_campaign(const std::string& difficulty)
 {
 	DBG_MP << "preparing data for campaign by reloading game config\n";
