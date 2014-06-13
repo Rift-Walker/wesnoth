@@ -435,6 +435,11 @@ void create_engine::prepare_for_scenario()
 	
 	resources::config_manager->
 		load_game_config_for_game(state_.classification());
+
+	current_level().set_data(
+		resources::config_manager->game_config().find_child(
+		lexical_cast<std::string> (game_classification::MULTIPLAYER),
+		"id", current_level().data()["id"]));
 }
 
 void create_engine::prepare_for_campaign(const std::string& difficulty)
